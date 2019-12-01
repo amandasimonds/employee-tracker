@@ -52,7 +52,7 @@ function start() {
         viewRoles();
 
       }
-      else if(answer.postOrBid === "Add Employee") {
+      else if(answer.selection === "Add Employee") {
         addEmployee();
 
       }
@@ -90,8 +90,89 @@ function viewAll() {
         }
       );
     };
+    var roleChoices = [];
+    function lookupRoles(){
+      
+        //selects all departments, pushes the id and name for each into the array
+        connection.query("SELECT * FROM role", function (err, data) {
+            if (err) throw err;
+            for (i = 0; i < data.length; i++) {
+               roleChoices.push(data[i].id + "-" + data[i].title)
+            }
+        })
+    
+    }
 
-// function addEmployee() {
+
+    var empChoices = [];
+    function lookupEmployee(){
+      
+        //selects all departments, pushes the id and name for each into the array
+        connection.query("SELECT * FROM employee", function (err, data) {
+            if (err) throw err;
+            for (i = 0; i < data.length; i++) {
+                empChoices.push(data[i].id + "-" + data[i].first_name+" "+ data[i].last_name)
+            }
+        })
+    
+    }
+
+function addEmployee() {
+
+    lookupRoles()
+
+    lookupEmployee()
+
+    inquirer
+    .prompt([
+    {
+      name: "firstname",
+      type: "input",
+      message: "What is the employee's first name?"
+    },
+
+    {
+        name: "lastname",
+        type: "input",
+        message: "What is the employee's last name?"
+    },
+
+    {
+        name: "role",
+        type: "list",
+        message: "What is the employee's role?",
+        choices: roleChoices 
+      },
+
+      {
+        name: "reportingTo",
+        type: "list",
+        message: "Who is your reporting to?",
+        choices: empChoices
+      }
+    
+     ])
+    .then(function(answer) {
+        //INSERT INTO employee (first_name, last_name, role_id, manager_id)
+        // VALUES("amanda", "simonds", 5, 4)//
+       //1-web developer
+       //1
+       //web developer
+        var getRoleId =answer.role.split("-")
+        var getReportingToId=answer.reportingTo.split("-")
+
+        var query = `INSERT INTO employee (first_name, last_name, role_id, manager_id)
+       VALUES ('${answer.firstname}','${answer.lastname}','${getRoleId[0]}', '${getReportingToId[0]}')
+       
+       `;
+      connection.query(query,  function(err, res) {
+       
+        runSearch();
+      });
+    });
+
+
+};
 //   // query the database for all items being auctioned
 //   connection.query(
 //       `INSERT INTO employee (first_name) VALUES (${newEmployee})`, 
