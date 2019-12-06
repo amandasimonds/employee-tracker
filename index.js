@@ -147,7 +147,7 @@ function addEmployee() {
       {
         name: "reportingTo",
         type: "list",
-        message: "Who is your reporting to?",
+        message: "Who is the employee's manager?",
         choices: empChoices
       }
     
