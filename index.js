@@ -5,9 +5,7 @@ var cTable = require("console.table")
 // create the connection information for the sql database
 var connection = mysql.createConnection({
   host: "localhost",
-
   port: 3306,
-
   user: "root",
   password: "root",
   database: "employee_tracker"
@@ -40,7 +38,7 @@ function start() {
     })
     .then(function(answer) {
         console.log(answer);
-      // based on their answer, either call the bid or the post functions
+      // based on their answer, call the function needed
       if (answer.selection === "View All Employees") {
         viewAll();
       }
@@ -73,9 +71,11 @@ function start() {
     });
 }
 
-//View All Function
+//View All Employees Function
 function viewAll() {
-      connection.query("SELECT * FROM employee", function(err, result, fields) {
+      connection.query(
+        "SELECT employee.id, employee.first_name, employee.last_name, employee.role_id, employee.manager_id, role.title, role.salary, role.id, department.id FROM employee LEFT JOIN role ON employee.role_id = role.id LEFT JOIN department ON role.department_id = department.id", 
+        function(err, result, fields) {
           if (err) throw err;
           console.table(result);
           // re-prompt the user for another selection
@@ -84,7 +84,30 @@ function viewAll() {
       );
     };
 
+ function viewRoles() {
+ connection.query(
+"SELECT role.id, role.title, role.salary, role.department_id, department.id, department.name FROM role LEFT JOIN department on role.department_id = department.id",
+ function(err, result, fields) {
+     if (err) throw err;
+     console.table(result);
+     // re-prompt the user for another selection
+     start();
+   }
+ ); };
+
+ function viewDepts() {
+  connection.query("SELECT * FROM department", function(err, result, fields) {
+      if (err) throw err;
+      console.table(result);
+      // re-prompt the user for another selection
+      start();
+    }
+  ); };
+
+/////////Look Up Functions//////////////
 var roleChoices = [];
+var empChoices = [];
+var deptChoices = [];
 
 function lookupRoles(){  
     //selects all departments, pushes the id and name for each into the array
@@ -96,8 +119,6 @@ function lookupRoles(){
      })
     }
 
-var empChoices = [];
-
 function lookupEmployee(){  
     //selects all departments, pushes the id and name for each into the array
      connection.query("SELECT * FROM employee", function (err, data) {
@@ -105,14 +126,26 @@ function lookupEmployee(){
          for (i = 0; i < data.length; i++) {
              empChoices.push(data[i].id + "-" + data[i].first_name+" "+ data[i].last_name)
          }
-     })
-    
+     }) 
     }
 
+function lookupDepts(){
+  //selects all departments, pushes the id and name for each into the array
+  connection.query("SELECT * FROM department", function (err, data) {
+    if (err) throw err;
+    for (i = 0; i < data.length; i++) {
+        deptChoices.push(data[i].id + "-" + data[i].name)
+    }
+})
+}
+
+//////////Prompt Functions////////////
 function addEmployee() {
 
     lookupRoles()
     lookupEmployee()
+
+    console.log(empChoices)
 
     inquirer.prompt([
     {
@@ -154,3 +187,160 @@ function addEmployee() {
       start();
     });
 };
+
+function addRole() {
+
+  lookupRoles()
+  lookupEmployee()
+  lookupDepts()
+
+  inquirer.prompt([
+  {
+    name: "role",
+    type: "input",
+    message: "Enter the role you would like to add:"
+  },
+
+  {
+      name: "dept",
+      type: "list",
+      message: "In what department would you like to add this role?",
+      choices: deptChoices
+  },
+
+  {
+    name: "salary",
+    type: "number",
+    message: "Enter the role's salary:"
+  },
+  
+   ]).then(function(answer) {
+     console.log(`${answer.role}`)
+     //add new employee to the database
+    var getDeptId =answer.dept.split("-")
+    var query = 
+    `INSERT INTO role (title, salary, department_id)
+     VALUES ('${answer.role}','${answer.salary}','${getDeptId[0]}')`;
+    connection.query(query, function(err, res) {
+      console.log(`<br>-----new role ${answer.role} added!------`)
+    });
+    start();
+  });
+};
+
+function addDept() {
+
+  lookupRoles()
+  lookupEmployee()
+  lookupDepts()
+
+  inquirer.prompt([
+  {
+    name: "dept",
+    type: "input",
+    message: "Enter the department you would like to add:"
+  }
+  ]).then(function(answer) {
+     //add new department to the database
+    var query = 
+    `INSERT INTO department (name)
+     VALUES ('${answer.dept}')`;
+    connection.query(query, function(err, res) {
+      console.log(`-------new department added: ${answer.dept}-------`)
+    });
+    start();
+  });
+};
+
+function updateEmployee() {
+
+  viewAll()
+  lookupRoles()
+  lookupEmployee()
+
+  inquirer.prompt([
+  {
+    name: "employee",
+    type: "list",
+    message: "Which employee would you like to update?",
+    choices: empChoices
+  }
+
+  ]).then(function(answer){
+    var getEmpId = answer.employee.split("-")
+
+    inquirer.prompt([
+      {
+        name: "updateSelection",
+        type: "list",
+        message: "What would you like to update?",
+        choices: ["First name", "Last Name", "Role"]
+      }
+
+    ]).then(function(answer, getEmpId){
+      if (answer.updateSelection === "First Name"){
+       newFirstName();
+      } else if (answer.updateSelection === "Last Name"){
+       newLastName();
+      } else if (answer.updateSelection === "Role"){
+        newEmpRole();
+       }
+    })
+  })
+}
+
+  function newLastName(employeeID) {
+    inquirer
+        .prompt([
+            {
+                type: "input",
+                name: "newLast",
+                message: "What is their new last name?"
+            }
+        ])
+        .then(function (data) {
+            connection.query(
+                "UPDATE employee SET ? WHERE ?",
+                [
+                    {
+                        last_name: data.newLast
+                    },
+                    {
+                        id: employeeID
+                    }
+                ],
+                function (error) {
+                    if (error) throw err;
+                    start();
+                }
+            );
+        });
+}
+
+function newFirstName(employeeID) {
+    inquirer
+        .prompt([
+            {
+                type: "input",
+                name: "newFirst",
+                message: "What is their new first name?"
+            }
+        ])
+        .then(function (data) {
+            connection.query(
+                "UPDATE employee SET ? WHERE ?",
+                [
+                    {
+                        first_name: data.newFirst
+                    },
+                    {
+                        id: employeeID
+                    }
+                ],
+                function (error) {
+                    if (error) throw err;
+                    start();
+                }
+            );
+        });
+}
