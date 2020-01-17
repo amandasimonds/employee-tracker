@@ -126,6 +126,7 @@ function lookupEmployee(){
          for (i = 0; i < data.length; i++) {
              empChoices.push(data[i].id + "-" + data[i].first_name+" "+ data[i].last_name)
          }
+        //  return empChoices;
      }) 
     }
 
@@ -144,8 +145,6 @@ function addEmployee() {
 
     lookupRoles()
     lookupEmployee()
-
-    console.log(empChoices)
 
     inquirer.prompt([
     {
@@ -254,21 +253,33 @@ function addDept() {
 
 function updateEmployee() {
 
-  viewAll()
-  lookupRoles()
-  lookupEmployee()
-
+  connection.query("SELECT * FROM employee", function (err, results) {
+    if (err) throw err;
   inquirer.prompt([
-  {
-    name: "employee",
-    type: "list",
-    message: "Which employee would you like to update?",
-    choices: empChoices
-  }
+    {
+      name: "employee",
+      type: "list",
+      message: "Which employee would you like to update?",
+      choices: function () {
+        var choiceArray = [];
+        for (var i = 0; i < results.length; i++) {
+            choiceArray.push(results[i].id + " " + results[i].first_name + " " + results[i].last_name);
+        }
+        return choiceArray;
+      }
+    }
+  ])
 
-  ]).then(function(answer){
-    var getEmpId = answer.employee.split("-")
+  .then(function (data) {
+    for (var i = 0; i < results.length; i++) {
+        if (data.employeeName === results[i].id + " " + results[i].first_name + " " + results[i].last_name) {
+            var employeeID = results[i].id;
+        }
+    }
+    return (employeeID);  
+    })
 
+    .then(function(employeeID){
     inquirer.prompt([
       {
         name: "updateSelection",
@@ -276,20 +287,22 @@ function updateEmployee() {
         message: "What would you like to update?",
         choices: ["First name", "Last Name", "Role"]
       }
+    ])
 
-    ]).then(function(answer, getEmpId){
+    .then(function(answer){
       if (answer.updateSelection === "First Name"){
-       newFirstName();
+       newFirstName(employeeID);
       } else if (answer.updateSelection === "Last Name"){
-       newLastName();
+       newLastName(employeeID);
       } else if (answer.updateSelection === "Role"){
-        newEmpRole();
+        newEmpRole(employeeID);
        }
-    })
-  })
-}
+    });
+  });
+});
+};
 
-  function newLastName(employeeID) {
+function newLastName(employeeID) {
     inquirer
         .prompt([
             {
@@ -343,4 +356,50 @@ function newFirstName(employeeID) {
                 }
             );
         });
+}
+
+function newEmpRole(employeeID) {
+  connection.query("SELECT * FROM role", function (err, results) {
+      if (err) throw err;
+      inquirer
+          .prompt([
+              {
+                  type: "list",
+                  name: "roleID",
+                  message: "What is their new role.",
+                  choices: function () {
+                      var choiceArray = [];
+                      for (var i = 0; i < results.length; i++) {
+                          choiceArray.push(results[i].title);
+                      }
+                      return choiceArray;
+                  }
+              }
+          ])
+          .then(function (data) {
+              for (var i = 0; i < results.length; i++) {
+                  if (data.roleID === results[i].title) {
+                      data.roleID = results[i].id
+                  }
+              }
+              return data;
+          })
+          .then(function (data) {
+              connection.query(
+                  "UPDATE employee SET ? WHERE ?",
+                  [
+                      {
+                          role_id: data.roleID
+                      },
+                      {
+                          id: employeeID
+                      }
+                  ],
+                  function (error) {
+                      if (error) throw err;
+                      start();
+                  }
+              );
+          });
+  })
 }
